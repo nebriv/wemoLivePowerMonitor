@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+wemo.cache
+history.p
+
 # C extensions
 *.so
 
