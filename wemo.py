@@ -4,6 +4,7 @@ import os
 import datetime
 import threading
 import pickle
+import random
 
 class Wemo:
     devices = []
@@ -17,6 +18,8 @@ class Wemo:
     historyMax = 360
 
     lastLoadTime = False
+
+    fakeData = True
 
     def __init__(self, bgRun=True):
         self.load()
@@ -55,6 +58,10 @@ class Wemo:
             print("Mismatch in number of detected devices. Trying again in 15 seconds.")
             time.sleep(15)
             self.discovery()
+        if len(self.devices) == 0:
+            print("OH GOD OH NO. NO WEMO DEVICES!")
+            if self.fakeData:
+                print("but don't worry we'll just make some data up...")
 
     def saveHistory(self):
         pickle.dump(self.history, open('history.p', 'wb'))
@@ -101,14 +108,20 @@ class Wemo:
         print("Total power (kw): %s" % (self.total_power() / 1000000))
 
     def total_power(self, conversion=1000000):
-        now = datetime.datetime.now()
-        self.updateInsight()
-        total = 0
-        for device in self.devices:
-            total += device.current_power
 
-        total = total / conversion
-        self.addHistory(now, total)
+        if len(self.devices) > 0:
+            now = datetime.datetime.now()
+            self.updateInsight()
+            total = 0
+            for device in self.devices:
+                total += device.current_power
+
+            total = total / conversion
+            self.addHistory(now, total)
+        else:
+            if self.fakeData:
+                total = random.random()
+
         return {"datetime": now, "data": total}
 
     def data_history(self):
