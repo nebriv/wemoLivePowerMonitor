@@ -5,7 +5,8 @@ __pycache__/
 
 wemo.cache
 history.p
-.idea
+.idea*
+.idea\*
 .idea/*
 # C extensions
 *.so
