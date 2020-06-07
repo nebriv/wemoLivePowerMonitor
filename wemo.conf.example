@@ -2,3 +2,7 @@
 host=example.com
 username=username
 password=password
+port=9000
+
+[Wemo]
+AlwaysOn=Kitchen

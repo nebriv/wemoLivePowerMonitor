@@ -10,23 +10,23 @@ import configparser
 config = configparser.ConfigParser()
 config.read('wemo.conf')
 app = Flask(__name__, static_folder="templates/assets")
-wemo = Wemo(config['Elasticsearch']['host'], config['Elasticsearch']['username'], config['Elasticsearch']['password'])
+wemo = Wemo(config)
 
-@app.route('/_data', methods = ['GET'])
-def wemoData():
-    return jsonify(result=wemo.total_power())
-
-@app.route('/_dataHistory', methods = ['GET'])
-def wemoHistory():
-    return jsonify(result=wemo.data_history())
-
-@app.route('/_deviceInfo', methods = ['GET'])
-def deviceInfo():
-    return jsonify(result=wemo.collectDeviceInfo(historyLimit=30))
-
-@app.route('/')
-def index():
-    return render_template('index.html')
+# @app.route('/_data', methods = ['GET'])
+# def wemoData():
+#     return jsonify(result=wemo.total_power())
+#
+# @app.route('/_dataHistory', methods = ['GET'])
+# def wemoHistory():
+#     return jsonify(result=wemo.data_history())
+#
+# @app.route('/_deviceInfo', methods = ['GET'])
+# def deviceInfo():
+#     return jsonify(result=wemo.collectDeviceInfo(historyLimit=30))
+#
+# @app.route('/')
+# def index():
+#     return render_template('index.html')
 
 if __name__ == '__main__':
     app.run()
