@@ -131,3 +131,5 @@ dmypy.json
 .idea/vcs.xml
 history.p
 wemo.conf
+wemo.cache
+.idea/vcs.xml
