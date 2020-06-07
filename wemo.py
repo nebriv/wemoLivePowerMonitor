@@ -67,8 +67,8 @@ class Wemo:
     def discovery(self):
         now = datetime.datetime.now()
         if self.firstRun:
-            self.lastDiscoveryTime = now - datetime.timedelta(seconds=180)
-        if (now - self.lastDiscoveryTime).seconds > 90:
+            self.lastDiscoveryTime = now - datetime.timedelta(seconds=10000000)
+        if (now - self.lastDiscoveryTime).seconds > 300:
             self.lastDiscoveryTime = now
             print("Discovering Wemo devices on network")
             devicesA = pywemo.discover_devices()
@@ -76,9 +76,6 @@ class Wemo:
             devicesB = pywemo.discover_devices()
             if len(devicesA) == len(devicesB):
                 self.devices = devicesB
-                for device in self.devices:
-                    print(device.host)
-                self.save_cache()
             else:
                 print("Mismatch in number of detected devices. Trying again in 5 seconds.")
                 time.sleep(5)
@@ -88,21 +85,10 @@ class Wemo:
                 if self.fakeData:
                     print("but don't worry we'll just make some data up...")
 
-    def load_cache(self):
-        print("Loading cache: %s" % self.cache_file)
-        with open(self.cache_file, 'r') as inFile:
-            for line in inFile.readlines():
-                address = line.strip()
-                port = pywemo.ouimeaux_device.probe_wemo(address)
-                url = 'http://%s:%i/setup.xml' % (address, port)
-                device = pywemo.discovery.device_from_description(url, None)
-                self.devices.append(device)
-
-    def save_cache(self):
-        print("Saving cache: %s" % self.cache_file)
-        with open(self.cache_file, 'w') as outFile:
-            for device in self.devices:
-                outFile.write(device.host + "\n")
+    def reDiscover(self, rediscoveryTime = 600):
+        now = datetime.datetime.now()
+        if (now - self.lastDiscoveryTime).seconds > rediscoveryTime:
+            self.discovery()
 
     def writeInfotoES(self, infoData):
         # print(infoData['datetime'])
@@ -193,8 +179,7 @@ class Wemo:
 
     def update(self):
         while self.bgRun:
-            #self.total_power()
+            self.reDiscover()
             self.collectDeviceInfo()
             self.checkAlwaysOn()
-            self.load()
             time.sleep(15)
