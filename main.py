@@ -6,9 +6,11 @@ from flask import Flask, jsonify, render_template, request
 import webbrowser
 from wemo import Wemo
 
-
-app = Flask(__name__)
-wemo = Wemo()
+import configparser
+config = configparser.ConfigParser()
+config.read('wemo.conf')
+app = Flask(__name__, static_folder="templates/assets")
+wemo = Wemo(config['Elasticsearch']['host'], config['Elasticsearch']['username'], config['Elasticsearch']['password'])
 
 @app.route('/_data', methods = ['GET'])
 def wemoData():
@@ -17,6 +19,10 @@ def wemoData():
 @app.route('/_dataHistory', methods = ['GET'])
 def wemoHistory():
     return jsonify(result=wemo.data_history())
+
+@app.route('/_deviceInfo', methods = ['GET'])
+def deviceInfo():
+    return jsonify(result=wemo.collectDeviceInfo(historyLimit=30))
 
 @app.route('/')
 def index():
