@@ -1,0 +1,4 @@
+[Elasticsearch]
+host=example.com
+username=username
+password=password
