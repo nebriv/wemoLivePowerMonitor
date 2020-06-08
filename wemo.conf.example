@@ -6,3 +6,6 @@ port=9000
 
 [Wemo]
 AlwaysOn=Kitchen
+
+[Notifications]
+clicksendAPI=None

@@ -7,8 +7,10 @@ import pickle
 import random
 import mimetypes
 from elasticsearch7 import Elasticsearch
-
+import clicksend_client
+from clicksend_client.rest import ApiException
 from pywemo.ouimeaux_device.api.service import ActionException
+
 
 
 mimetypes.add_type('text/css', '.css')
@@ -34,6 +36,10 @@ class Wemo:
     config = False
     alwaysOnDevices = []
 
+    smsAccountAPI = False
+    smsAPI = False
+    notificationNumber = False
+
     def __init__(self, config, bgRun=True):
         self.config = config
         if "Elasticsearch" in config:
@@ -46,6 +52,28 @@ class Wemo:
                                     ssl_show_warn=False,
                                     verify_certs=False,
                                     port=esPort)
+
+        if "Notifications" in config:
+            if "clicksendAPI_username" in config['Notifications']:
+                configuration = clicksend_client.Configuration()
+                configuration.username = config['Notifications']['clicksendAPI_username']
+                configuration.password = config['Notifications']['clicksendAPI_password']
+                self.notificationNumber = config['Notifications']['phonenumber']
+                # create an instance of the API class
+                self.smsAccountAPI = clicksend_client.AccountApi(clicksend_client.ApiClient(configuration))
+                try:
+                    # Get account information
+                    api_response = self.smsAccountAPI.account_get()
+                    if "http_code': 200" not in api_response:
+                        print("Invalid clicksend API response")
+                        print(api_response)
+                        self.smsAccountAPI = False
+                    else:
+                        self.smsAPI = clicksend_client.SMSApi(clicksend_client.ApiClient(configuration))
+
+                except ApiException as e:
+                    print("Exception when calling AccountApi->account_get: %s\n" % e)
+
 
         if "Wemo" in config:
             if "AlwaysOn" in config['Wemo']:
@@ -64,26 +92,60 @@ class Wemo:
             self.bgUpdateThread = threading.Thread(target=self.update)
             self.bgUpdateThread.start()
 
-    def discovery(self):
+    def discovery(self, retry=0):
         now = datetime.datetime.now()
         if self.firstRun:
             self.lastDiscoveryTime = now - datetime.timedelta(seconds=10000000)
+            self.firstRun = False
         if (now - self.lastDiscoveryTime).seconds > 300:
             self.lastDiscoveryTime = now
             print("Discovering Wemo devices on network")
             devicesA = pywemo.discover_devices()
             time.sleep(2)
             devicesB = pywemo.discover_devices()
-            if len(devicesA) == len(devicesB):
+
+            if len(devicesA) == len(devicesB) and len(devicesA) > 0:
                 self.devices = devicesB
             else:
-                print("Mismatch in number of detected devices. Trying again in 5 seconds.")
-                time.sleep(5)
-                self.discovery()
-            if len(self.devices) == 0:
-                print("OH GOD OH NO. NO WEMO DEVICES!")
-                if self.fakeData:
-                    print("but don't worry we'll just make some data up...")
+                if retry < 3:
+                    retry += 1
+                    print("Mismatch in number of detected devices, or no devices found. Trying again in 5 seconds.")
+                    time.sleep(5)
+                    self.discovery(retry)
+                else:
+                    print("%s retries and still unable to get devices... backing off a long time (We will never give up though. The fridge depends on us.)" % retry)
+                    if retry > 10:
+                        time.sleep(120)
+                    else:
+                        time.sleep(30)
+                    retry += 1
+                    self.discovery(retry)
+
+
+    def sendSMSMessage(self, message, to, retry=0):
+        if to.startswith("+1"):
+            try:
+                message = "Wemo Alert - %s " % message
+
+                message = clicksend_client.SmsMessage(body=message, to=to)
+                messages = clicksend_client.SmsMessageCollection(messages=[message])
+                try:
+                    # Send sms message(s)
+                    api_response = self.smsAPI.sms_send_post(messages)
+                    # print(api_response)
+                except ApiException as e:
+                    print("Exception when calling SMSApi->sms_send_post: %s\n" % e)
+            except ConnectionResetError as err:
+                print("Got an error sending SMS trying again...")
+                time.sleep(1)
+                if retry < 3:
+                    retry += 1
+                    self.sendSMSMessage(message, to, retry)
+                else:
+                    print("Still couldn't send that dang message. Giving up after 3 retries")
+
+        else:
+            print("Invalid phone number while trying to send message")
 
     def reDiscover(self, rediscoveryTime = 600):
         now = datetime.datetime.now()
@@ -139,6 +201,7 @@ class Wemo:
             else:
                 print("ERROR COMMUNICATING WITH %s. Re-running discovery." % device.name)
                 if device.name in self.alwaysOnDevices:
+                    self.sendSMSMessage("Error communicating with %s. Re-running discovery." % device.name, self.notificationNumber)
                     print("OH GOD ITS A BAD ONE TO LOSE.")
                 self.discovery()
 
@@ -156,6 +219,7 @@ class Wemo:
     def alwaysOnDevice(self, device, flipped=0):
         if device.name in self.alwaysOnDevices:
             if device.get_state() == 0:
+                self.sendSMSMessage("%s is off! Turning it back on!" % device.name, self.notificationNumber)
                 print("%s is off! Turning it back on!" % device.name)
                 device.on()
                 time.sleep(1)
@@ -165,6 +229,7 @@ class Wemo:
                         time.sleep(1)
                         self.alwaysOnDevice(device, flipped=flipped)
                     else:
+                        self.sendSMSMessage("%s is still off. Unable to turn it back on!" % device.name, self.notificationNumber)
                         print("%s is still off. Unable to turn it back on!" % device.name)
 
     def checkAlwaysOn(self):
@@ -174,6 +239,8 @@ class Wemo:
         for device in self.alwaysOnDevices:
             if not any(x.name == device for x in self.devices):
                 print("OH MY GOD %s IS MISSING!" % device)
+                self.sendSMSMessage("%s not found in device list. Re-running discovery." % device.name,
+                                    self.notificationNumber)
                 self.discovery()
 
 
