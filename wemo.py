@@ -73,6 +73,9 @@ class Wemo:
 
                 except ApiException as e:
                     print("Exception when calling AccountApi->account_get: %s\n" % e)
+                except Exception as err:
+                    print("Eception when calling clicksend API")
+                    print(err)
 
 
         if "Wemo" in config:
@@ -81,10 +84,13 @@ class Wemo:
                 self.alwaysOnDevices = config['Wemo']['AlwaysOn'].split(",")
 
         if self.es:
-            if not self.es.ping():
-                print(self.es.ping())
-                raise ConnectionError("Error connecting to Elasticsearch host: %s" % esHost)
-
+            print("Connecting to ES")
+            try:
+                if not self.es.ping():
+                    print(self.es.ping())
+                    raise ConnectionError("Error connecting to Elasticsearch host: %s" % esHost)
+            except Exception as err:
+                print("Error connecting to ES")
         self.discovery()
         self.bgRun = bgRun
 
@@ -97,15 +103,17 @@ class Wemo:
         if self.firstRun:
             self.lastDiscoveryTime = now - datetime.timedelta(seconds=10000000)
             self.firstRun = False
-        if (now - self.lastDiscoveryTime).seconds > 300:
+        if (now - self.lastDiscoveryTime).seconds > 300 or retry > 0:
             self.lastDiscoveryTime = now
             print("Discovering Wemo devices on network")
             devicesA = pywemo.discover_devices()
             time.sleep(2)
             devicesB = pywemo.discover_devices()
-
+            print(devicesA)
+            print(devicesB)
             if len(devicesA) == len(devicesB) and len(devicesA) > 0:
                 self.devices = devicesB
+                print("Found %s devices in discovery" % len(self.devices))
             else:
                 if retry < 3:
                     retry += 1
@@ -238,10 +246,15 @@ class Wemo:
 
         for device in self.alwaysOnDevices:
             if not any(x.name == device for x in self.devices):
-                print("OH MY GOD %s IS MISSING!" % device)
-                self.sendSMSMessage("%s not found in device list. Re-running discovery." % device.name,
-                                    self.notificationNumber)
-                self.discovery()
+                try:
+                    print("OH MY GOD %s IS MISSING!" % device)
+                    self.sendSMSMessage("%s not found in device list. Re-running discovery." % device.name,
+                                        self.notificationNumber)
+                    self.discovery()
+                except AttributeError as err:
+                    print("Weird error when trying to check always on. Device likely isn't a device?")
+                    print(err)
+                    self.discovery()
 
 
     def update(self):
