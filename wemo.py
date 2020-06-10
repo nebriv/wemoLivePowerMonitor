@@ -109,8 +109,6 @@ class Wemo:
             devicesA = pywemo.discover_devices()
             time.sleep(2)
             devicesB = pywemo.discover_devices()
-            print(devicesA)
-            print(devicesB)
             if len(devicesA) == len(devicesB) and len(devicesA) > 0:
                 self.devices = devicesB
                 print("Found %s devices in discovery" % len(self.devices))
@@ -162,10 +160,15 @@ class Wemo:
 
     def writeInfotoES(self, infoData):
         # print(infoData['datetime'])
-        res = self.es.index(index="wemo-%s-%s-%s" % (infoData['name'].replace(" ","").lower(),infoData['macaddress'].replace(":","").lower(), infoData['datetime'].strftime('%Y-%m-%d')), body=infoData)
-        if "result" in res:
-            if res['result'] == "created":
-                return True
+        try:
+            res = self.es.index(index="wemo-%s-%s-%s" % (infoData['name'].replace(" ","").lower(),infoData['macaddress'].replace(":","").lower(), infoData['datetime'].strftime('%Y-%m-%d')), body=infoData)
+            if "result" in res:
+                if res['result'] == "created":
+                    return True
+            return False
+        except Exception as err:
+            print("Caught exception while trying to save to ES")
+            print(err)
         return False
         # print(res)
 
