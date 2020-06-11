@@ -185,7 +185,11 @@ class Wemo:
                 deviceCommunicating = False
 
             if deviceCommunicating:
-                device.update_insight_params()
+                try:
+                    device.update_insight_params()
+                except Exception as err:
+                    print("Error getting device (%s) update." % device.name)
+                    continue
                 if state == 8:
                     state = "Standby"
                 elif state == 1:

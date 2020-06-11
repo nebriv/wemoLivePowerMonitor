@@ -134,3 +134,5 @@ wemo.conf
 wemo.cache
 .idea/vcs.xml
 test.py
+.idea/vcs.xml
+wemo.cache
