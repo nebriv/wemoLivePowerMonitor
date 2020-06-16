@@ -21,7 +21,7 @@ class Wemo:
 
 
     lastInsightUpdate = False
-    insightDataCacheTime = 15
+    insightDataCacheTime = 60
     bgRun = True
     history = {"total_power": {"datetime": [], "data": []}, "devices": {}}
     historyMax = 360000
@@ -269,4 +269,4 @@ class Wemo:
             self.reDiscover()
             self.collectDeviceInfo()
             self.checkAlwaysOn()
-            time.sleep(15)
+            time.sleep(30)
