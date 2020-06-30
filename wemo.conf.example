@@ -8,4 +8,6 @@ port=9000
 AlwaysOn=Kitchen
 
 [Notifications]
-clicksendAPI=None
+clicksendAPI_username=
+clicksendAPI_password=
+phonenumber=+11111111
